@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<input id="file" type="file" name="file">
+<button onclick="sendChunk()">업로드</button>
+<div id="result"></div>
+
+</body>
+<script>
+    const sendChunk = () => {
+        const fileChunkSize = 1024 * 1024; // 1MB
+        const file = document.getElementById("file").files[0];
+        const resultElement = document.getElementById("result");
+  		//파일 총 청크 수 계산
+        const totalChunk = Math.ceil(file.size / fileChunkSize);
+        //현재 청크 번호
+        let chunkNumber = 0;
+  		//청크 파일 전송
+        const sendNextChunk = () => {
+  			//청크 데이터 분할
+            const start = chunkNumber * fileChunkSize;
+            const end = Math.min(start + fileChunkSize, file.size);
+            const chunk = file.slice(start, end);
+  			//form-Data 형식으로 전송
+            const formData = new FormData();
+            formData.append("chunk", chunk, file.name);
+            formData.append("chunkNumber", chunkNumber);
+            formData.append("totalChunk", totalChunk);
+            fetch("/chunkupload", {
+                method: "POST",
+                body: formData
+            }).then(response => {
+  				//응답 결과가 206이면 다음 청크 전송
+                if (response.status === 206) {
+  					//현재 진행률 표시
+                    resultElement.textContent = Math.round(chunkNumber / totalChunk * 100) + "%";
+                    chunkNumber++;
+                    if (chunkNumber < totalChunk) {
+                        sendNextChunk();
+                    }
+                // 마지막 파일까지 전송 되면 
+                } else if (response.status === 200) {
+                    response.text().then(data => resultElement.textContent = data);
+                }
+            }).catch(err => {
+                console.error("Error uploading File.");
+            });
+        };
+
+        sendChunk();
+    }
+</script>
+</html>
